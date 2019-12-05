@@ -1,9 +1,14 @@
 import random
-
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 WIDTH = 9
 HEIGHT = 9
-ACTIONS = [[-1, 0], [1, 0], [0, 1], [0, -1]]#left right up down
-
+'''IMPORTANT'''
+"""The x y of this problem is according to the 2-dimension list index, not the graph index"""
+#0      1      2    3
+#LEFT   RIGHT  UP   DOWN
+ACTIONS = [[0, -1], [0, 1], [-1, 0], [1, 0]]
 
 class Square(object):
     '''
@@ -18,6 +23,13 @@ class Square(object):
         self.reward = -1
         self.state = 'NULL'
         self.value = 0
+        self.q_table=[0 for i in range(4)]
+
+    def set_q_value(self,value,direction):
+        self.q_table[direction]=value
+
+    def get_q_value(self):
+        return self.q_table
 
     def set_value(self, value):
         self.value = value
@@ -30,7 +42,7 @@ class Square(object):
         self.y = y
 
     def get_position(self):
-        return self.x, self.y
+        return (self.x, self.y)
 
     def get_state(self):
         return self.state
@@ -54,7 +66,7 @@ def Map():
     '''
        map is a 2-dimension list which contained square class to build the given map.
        '''
-    map = [[Square(i, j) for i in range(WIDTH)] for j in range(HEIGHT)]
+    map = [[Square(j, i) for i in range(WIDTH)] for j in range(HEIGHT)]
     for y in range((WIDTH)):
         for x in range((HEIGHT)):
             if x + 1 == 9 and y + 1 == 9:
@@ -148,51 +160,151 @@ class Snake(object):
         '''update current square value through the nearby value'''
         nearbySquares=self.nextStates(graph)
         l=len(nearbySquares)
-        current_value=graph[x][y].get_reward()
+        current_reward=graph[x][y].get_reward()
         for square in nearbySquares:
-            updated_value+=1.0/l*(current_value+square.get_reward())
+            updated_value+=1.0/l*(current_reward+square.get_value())
+        #print(updated_value)
+
         graph[x][y].set_value(updated_value)
 
-    ####current policy: move towards 4 direnction with same possibality###
     def equiprobable_policy(self, graph):
+        '''equiproble policy with the same possability'''
         num = random.randint(0, 3)
         self.move(graph,ACTIONS[num])
 
-def Episode(graph):
+    def optimal_value_function(self,graph):
+        x, y = self.get_position()
+        # print(x,y)
+        # print("#######")
+        next_states=self.nextStates(graph)
+        max_value=-1000000
+        for s in next_states:
+            a,b=s.get_position()
+            # print(a,b)
+            value=s.get_value()
+            if value>max_value:
+                max_value=value
+                max_pos=[s.x,s.y]
+        action=[max_pos[0]-x,max_pos[1]-y]
+        return action
+
+    def dp_policy(self,graph):
+        '''optimal policy with the highest value'''
+        action=self.optimal_value_function(graph)
+        self.move(graph,action)
+
+    def q_learning(self,graph):
+        #1 current position
+        x, y = self.get_position()
+        #print(x,y)
+        #2 random pick next position
+        next_states = self.nextStates(graph)
+        num=len(next_states)-1
+        n=random.randint(0,num)
+        #3 calculate the movement between current and next state, get the direction tag
+        x_next,y_next=next_states[n].get_position()
+        x_diff,y_diff=x_next-x,y_next-y
+        #print(x_diff,y_diff)
+        for i in range(len(ACTIONS)):
+            if [x_diff,y_diff]==ACTIONS[i]:
+                direction_tag=i # the action of next move
+        #print(direnction_tag,graph[x][y].q_table)
+        #4 calculate q value according to the value
+        updated_q_value=graph[x_next][y_next].get_reward()+max(graph[x_next][y_next].q_table)
+        #5 update q value
+        graph[x][y].set_q_value(updated_q_value,direction_tag)
+        #6 move according to the direction tag to next state
+        self.move(graph,ACTIONS[direction_tag])
+        #print(graph[x][y].get_q_value())
+
+    def q_learning_policy(self,graph):
+        '''q_learning choosing the action with the highest value in with the q table of each square'''
+        x, y = self.get_position()
+        #print(x,y)
+        max_q_value=max(graph[x][y].q_table)
+        for i in range(len(graph[x][y].q_table)):
+            if graph[x][y].q_table[i]==max_q_value:
+                direction_tag=i
+        self.move(graph, ACTIONS[direction_tag])
+
+
+
+
+
+        
+
+def Episode(graph,snake):
     '''
     Episode represent a game from the given start position and map until the terminal situation
     '''
-    snake=Snake(0,0,0)
     move_path = []
     while (snake.state != 'TERMINAL'):
+        #snake.dp_policy(graph)
         snake.equiprobable_policy(graph)
         snake.value_update(graph)
+        #snake.q_learning(graph)
         move_path.append([snake.x, snake.y])
     snake.value_update(graph)
 
     valueMatrix=[[0]*WIDTH for i in range(HEIGHT)]
     for y in range(HEIGHT):
         for x in range(WIDTH):
-            #print(x,y)
+            # print(x,y)
             valueMatrix[x][y]=graph[x][y].get_value()
 
     global policy_evaluation
     policy_evaluation=valueMatrix
     return snake.reward, move_path,policy_evaluation
 
+def Episode_q_learning(graph,snake):
+    move_path = []
+    while (snake.state != 'TERMINAL'):
+        snake.q_learning_policy(graph)
+        move_path.append([snake.x, snake.y])
+    return snake.reward, move_path
+
 def output_auxilary(policy_evaluation):
     for line in policy_evaluation:
         for i in range(len(line)):
-            print('{0:>6.2f}'.format(line[i]),end = " ")
+            print('{0:>6.1f}'.format(line[i]),end = " ")
         print("")
 
 
 if __name__ == '__main__':
+    reward_table=[]
     graph = Map()
-    # for i in range(10):
-    #     snake.equiprobable_policy(graph)
-    #     print(snake.x,snake.y,snake.value_update(graph))
-    for i in range(10):
-        reward,move_path,matrix=Episode(graph)
+    # for i in range(9):
+    """Iteration of 100 times can be adjust"""
+    for i in range(100):
+        #random start location
+        x = random.randint(0, 8)
+        y = random.randint(0, 8)
+        snake = Snake(x, y, 0)
+        #Drop on the wall, skip this round
+        if graph[x][y].moveable==False:
+            continue
+        reward,move_path,matrix=Episode(graph,snake)
         print(reward,move_path)
-        output_auxilary(matrix)
+        #reward_table.append(reward)
+    for i in range(9):
+        for j in range(9):
+            print(graph[i][j].q_table,end=" ")
+        print('\n')
+    output_auxilary(matrix)
+    sns.set()
+    np.random.seed(0)
+    uniform_data = matrix
+    ax = sns.heatmap(matrix)
+    plt.show()
+
+    # for i in range(100):
+    #     x = random.randint(0, 8)
+    #     y = random.randint(0, 8)
+    #     if graph[x][y].moveable==False:
+    #         continue
+    #     snake = Snake(x, y, 0)
+    #     reward, move_path = Episode_q_learning(graph, snake)
+    #     reward_table.append(reward)
+    #     #print(reward, move_path)
+
+    #print(reward_table)
