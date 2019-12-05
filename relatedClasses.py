@@ -54,18 +54,18 @@ def Map():
     '''
        map is a 2-dimension list which contained square class to build the given map.
        '''
-    map = [[Square(i + 1, j + 1) for i in range(WIDTH)] for j in range(HEIGHT)]
+    map = [[Square(i, j) for i in range(WIDTH)] for j in range(HEIGHT)]
     for y in range((WIDTH)):
         for x in range((HEIGHT)):
             if x + 1 == 9 and y + 1 == 9:
                 map[x][y].set_treasure()
-            elif x + 1 == 6 and y + 1 == 7:
+            elif x + 1 == 7 and y + 1 == 6:
                 map[x][y].set_snakepit()
-            elif y + 1 == 2 and x + 1 >= 3 and x + 1 <= 7:
+            elif x + 1 == 2 and y + 1 >= 3 and y + 1 <= 7:
                 map[x][y].set_wall()
-            elif y + 1 == 8 and x + 1 >= 2 and x + 1 <= 5:
+            elif x + 1 == 8 and y + 1 >= 2 and y + 1 <= 5:
                 map[x][y].set_wall()
-            elif x + 1 == 7 and y + 1 >= 3 and y + 1 <= 6:
+            elif y + 1 == 7 and x + 1 >= 3 and x + 1 <= 6:
                 map[x][y].set_wall()
     return map
 
@@ -158,13 +158,12 @@ class Snake(object):
         num = random.randint(0, 3)
         self.move(graph,ACTIONS[num])
 
-def Episode():
+def Episode(graph):
     '''
     Episode represent a game from the given start position and map until the terminal situation
     '''
-    graph = Map()
+    snake=Snake(0,0,0)
     move_path = []
-    snake = Snake(7, 8, 0)
     while (snake.state != 'TERMINAL'):
         snake.equiprobable_policy(graph)
         snake.value_update(graph)
@@ -174,6 +173,7 @@ def Episode():
     valueMatrix=[[0]*WIDTH for i in range(HEIGHT)]
     for y in range(HEIGHT):
         for x in range(WIDTH):
+            #print(x,y)
             valueMatrix[x][y]=graph[x][y].get_value()
 
     global policy_evaluation
@@ -188,11 +188,11 @@ def output_auxilary(policy_evaluation):
 
 
 if __name__ == '__main__':
-    # graph = Map()
-    # snake=Snake(0,0,0)
+    graph = Map()
     # for i in range(10):
     #     snake.equiprobable_policy(graph)
     #     print(snake.x,snake.y,snake.value_update(graph))
-    reward,move_path,matrix=Episode()
-    print(reward,move_path)
-    output_auxilary(matrix)
+    for i in range(10):
+        reward,move_path,matrix=Episode(graph)
+        print(reward,move_path)
+        output_auxilary(matrix)
